@@ -49,9 +49,9 @@ function RSignalClass.new(identifier: string): Signal<callback<any>> & _classSig
 	function self:Connect(callback: callback<any>)
 		local conn
 		
-		local s, _ = task.spawn(pcall, function()
+		local s, _ = task.spawn(xpcall, function()
 			conn = Event.Event:Connect(callback)
-		end)
+		end, '...')
 
 		if s then
 			
