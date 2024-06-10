@@ -27,6 +27,15 @@ export type _classSignal = {
 	Wait: (self: {}) -> (),
 }
 
+local ReplicatedStorage = game.ReplicatedStorage
+
+local _events_folder: Folder =
+	if ReplicatedStorage:FindFirstChild('_Rsignal_events') then
+	ReplicatedStorage._Rsignal_events
+	else
+	Instance.new("Folder", ReplicatedStorage)
+
+_events_folder.Name = '_Rsignal_events'
 
 
 function RSignalClass.new(identifier: string): Signal<callback<any>> & _classSignal
@@ -39,30 +48,51 @@ function RSignalClass.new(identifier: string): Signal<callback<any>> & _classSig
 	self.tryManager = {}
 	self._connections = {}
 	self.catchManager = {}
-	
+
+	local function getEventByIdentifier()
+
+		local event = nil
+		
+		if not _events_folder:FindFirstChild(identifier) then 
+			event = Instance.new('BindableEvent', _events_folder)
+			return event
+		end
+		
+		return _events_folder[identifier]
+		
+	end
+
 	local _success = nil
+
+	local Event: BindableEvent = if getEventByIdentifier() ~= nil then
+		getEventByIdentifier()
+		else
+		Instance.new("BindableEvent", _events_folder)
+	Event.Name = identifier
 	
-	local Event = Instance.new("BindableEvent")
-
-
-
+	
+	
 	function self:Connect(callback: callback<any>)
 		local conn
 		
-		local s, _ = task.spawn(xpcall, function()
+		local s, _ = task.spawn(function()
+			
 			conn = Event.Event:Connect(callback)
-		end, '...')
+			
+		end)
 
 		if s then
-			
+
 			local connection: Connection<callback<any>> = {
 				Callback = callback,
 				Disconnect = function()
 					conn:Disconnect()
 				end,
 			}
-			
+
 			table.insert(self._connections, connection)
+		else
+			print('erro')
 		end
 	end
 
@@ -75,38 +105,38 @@ function RSignalClass.new(identifier: string): Signal<callback<any>> & _classSig
 
 		table.insert(self.FireConditions, success)
 		_success = success
-		
+
 		return self.catchManager
 	end
-	
+
 	function self.catchManager:catch(callback: callback<any>) 
-		
+
 		while _success == nil do end
-		
+
 		task.defer(function()
 			if not _success then
-				
+
 				callback()
-				
+
 			end
 		end)
-			
+
 	end
-	
+
 	function self._try(...)
 		for _, condition in self.FireConditions do
 			if not condition then return end
 		end
 		Event:Fire(...)
 	end
-	
-	
+
+
 
 	function self:Fire(...)
 
-		
+
 		task.defer(self._try, ...)
-		
+
 		return self.tryManager
 	end
 
@@ -115,8 +145,8 @@ function RSignalClass.new(identifier: string): Signal<callback<any>> & _classSig
 		Event.Event:Wait()
 
 	end
-	
-	
+
+
 	return self
 end
 
